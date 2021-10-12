@@ -109,21 +109,19 @@ std::vector<char> SeqBuf::as_square_array(const size_t n_threads) const
         throw std::runtime_error("Input contains no sequence!");
     }
 
-    // Pad so that the stride is a multiple of 4
-    // (needed to align memory addresses)
-    std::vector<char> read_array(max_length() * n_full_seqs_padded());
+    std::vector<char> read_array(max_length() * n_full_seqs(), 'N');
 #pragma omp parallel for simd schedule(static) num_threads(n_threads)
     for (size_t read_idx = 0; read_idx < n_full_seqs(); read_idx++)
     {
         std::string seq = sequence[_full_index[read_idx]];
         for (size_t base_idx = 0; base_idx < seq.size(); base_idx++)
         {
-            read_array[read_idx + base_idx * n_full_seqs_padded()] = seq[base_idx];
+            read_array[(read_idx * max_length()) + base_idx] = seq[base_idx];
         }
-        for (size_t base_idx = seq.size(); base_idx < _max_length; base_idx++)
-        {
-            read_array[read_idx + base_idx * n_full_seqs_padded()] = 'N';
-        }
+//        for (size_t base_idx = seq.size(); base_idx < _max_length; base_idx++)
+//        {
+//            read_array[read_idx + base_idx * n_full_seqs()] = 'N';
+//        }
     }
     return read_array;
 }
