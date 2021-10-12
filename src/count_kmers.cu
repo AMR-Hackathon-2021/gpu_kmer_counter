@@ -90,7 +90,7 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
       NT64(read_ptr + threadIdx.x * read_length, k, fhVal);
       counted = probe(bloom_table, hVal, cm_pars, k, false, true);
     }
-    if (counted) {
+    if (!counted) {
       hist_table[read_index + threadIdx.x * read_length] =
         probe(countmin_table, hVal, cm_pars, k, false, false);
     }
@@ -110,7 +110,7 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
       } else {
         counted = probe(bloom_table, hVal, cm_pars, k, false, true);
       }
-      if (counted) {
+      if (!counted) {
         hist_table[read_index + threadIdx.x * read_length + pos] =
           probe(countmin_table, hVal, cm_pars, k, false, false);
       }
