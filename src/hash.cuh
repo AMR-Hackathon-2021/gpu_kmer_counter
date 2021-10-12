@@ -13,8 +13,6 @@
 
 #include "cuda_call.cuh"
 
-namespace nthash {
-
 // offset for the complement base in the random seeds table
 const uint8_t cpOff = 0x07;
 
@@ -233,7 +231,11 @@ __hostdevice__ inline void NT64(const char *kmerSeq, const unsigned k,
     */
     fhVal = rol1(fhVal);
     fhVal = swapbits033(fhVal);
+#ifdef __CUDA_ARCH__
     fhVal ^= d_seedTab[(unsigned char)kmerSeq[(k - 1 - i) * baseStride]];
+#else
+    fhVal ^= seedTab[(unsigned char)kmerSeq[(k - 1 - i) * baseStride]];
+#endif
   }
   // return true;
 }
@@ -253,11 +255,19 @@ __hostdevice__ inline void NTC64(const char *kmerSeq, const unsigned k,
     */
     fhVal = rol1(fhVal);
     fhVal = swapbits033(fhVal);
+#ifdef __CUDA_ARCH__
     fhVal ^= d_seedTab[(unsigned char)kmerSeq[(k - 1 - i) * baseStride]];
+#else
+    fhVal ^= seedTab[(unsigned char)kmerSeq[(k - 1 - i) * baseStride]];
+#endif
 
     rhVal = rol1(rhVal);
     rhVal = swapbits033(rhVal);
+#ifdef __CUDA_ARCH__
     rhVal ^= d_seedTab[(unsigned char)kmerSeq[i * baseStride] & cpOff];
+#else
+    rhVal ^= seedTab[(unsigned char)kmerSeq[i * baseStride] & cpOff];
+#endif
   }
   hVal = (rhVal < fhVal) ? rhVal : fhVal;
   // return true;
@@ -269,8 +279,13 @@ __hostdevice__ inline uint64_t NTF64(const uint64_t fhVal, const unsigned k,
                                  const unsigned char charIn) {
   uint64_t hVal = rol1(fhVal);
   hVal = swapbits033(hVal);
+#ifdef __CUDA_ARCH__
   hVal ^= d_seedTab[charIn];
   hVal ^= (d_msTab31l[charOut][k % 31] | d_msTab33r[charOut][k % 33]);
+#else
+  hVal ^= seedTab[charIn];
+  hVal ^= (msTab31l[charOut][k % 31] | msTab33r[charOut][k % 33]);
+#endif
   return hVal;
 }
 
@@ -278,9 +293,15 @@ __hostdevice__ inline uint64_t NTF64(const uint64_t fhVal, const unsigned k,
 __hostdevice__ inline uint64_t NTR64(const uint64_t rhVal, const unsigned k,
                                  const unsigned char charOut,
                                  const unsigned char charIn) {
+#ifdef __CUDA_ARCH__
   uint64_t hVal = rhVal ^ (d_msTab31l[charIn & cpOff][k % 31] |
                            d_msTab33r[charIn & cpOff][k % 33]);
   hVal ^= d_seedTab[charOut & cpOff];
+#else
+  uint64_t hVal = rhVal ^ (msTab31l[charIn & cpOff][k % 31] |
+                           msTab33r[charIn & cpOff][k % 33]);
+  hVal ^= seedTab[charOut & cpOff];
+#endif
   hVal = ror1(hVal);
   hVal = swapbits3263(hVal);
   return hVal;
@@ -460,6 +481,4 @@ void copyNtHashTablesToDevice() {
   CUDA_CALL(cudaMemcpyToSymbolAsync(d_msTab33r, d_addr_msTab33r,
                                     256 * sizeof(uint64_t *)));
   CUDA_CALL(cudaDeviceSynchronize());
-}
-
 }
