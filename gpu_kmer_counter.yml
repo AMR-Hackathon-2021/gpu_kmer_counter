@@ -1,0 +1,44 @@
+name: gpu_kmer_counter
+channels:
+  - anaconda
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - ca-certificates=2020.10.14
+  - certifi=2020.6.20
+  - cudatoolkit=11.0.221
+  - dbus=1.13.18
+  - expat=2.2.10
+  - fontconfig=2.13.0
+  - freetype=2.10.4
+  - glib=2.56.2
+  - gst-plugins-base=1.14.0
+  - gstreamer=1.14.0
+  - icu=58.2
+  - jpeg=9b
+  - ld_impl_linux-64=2.33.1
+  - libedit=3.1.20191231
+  - libffi=3.3
+  - libgcc-ng=9.1.0
+  - libpng=1.6.37
+  - libstdcxx-ng=9.1.0
+  - libuuid=1.0.3
+  - libxcb=1.14
+  - libxml2=2.9.10
+  - ncurses=6.2
+  - openssl=1.1.1h
+  - pcre=8.44
+  - pip=20.2.4
+  - pyqt=5.9.2
+  - python=3.8.5
+  - qt=5.9.7
+  - readline=8.0
+  - setuptools=50.3.0
+  - sip=4.19.24
+  - sqlite=3.33.0
+  - tk=8.6.10
+  - wheel=0.35.1
+  - xz=5.2.5
+  - zlib=1.2.11
+prefix: /home/noahaus/miniconda3/envs/gpu_kmer_counter
