@@ -34,7 +34,7 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
                               unsigned int *countmin_table, count_min_pars pars) {
     // Load reads in block into shared memory
     char *read_ptr;
-    //int read_length_bank_pad = read_length;
+    int read_length_bank_pad = read_length;
     // TODO: another possible optimisation would be to put signs into shared
     // may affect occupancy though
 //    if (use_shared) {
