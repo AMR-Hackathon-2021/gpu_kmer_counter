@@ -32,8 +32,12 @@ public:
            const size_t n_threads,
            const size_t width_bits,
            const size_t hash_per_hash,
-           const int table_rows) :
-           width_(width), height_(height), d_count_min_(width * height), d_bloom_(width) {
+           const int k,
+           const int table_rows,
+           const int device_id = 0) :
+           width_(width), height_(height), k_(k), count_min_(width * height) {
+    CUDA_CALL(cudaSetDevice(device_id));
+    copyNtHashTablesToDevice();
 
     // set parameters for hash table
     pars_.width_bits = width_bits;
@@ -48,17 +52,17 @@ public:
     pars_.table_width = static_cast<uint32_t>(mask);
 
     // function for pulling read sequences from fastq files
-    seq_ = get_reads(filenames, n_threads);
+    std::vector<char> seq = get_reads(filenames, n_threads);
 
     // get the number of reads and read length
-    n_reads_ = seq_.size();
-    read_len_ = (seq_.at(0)).size();
+    n_reads_ = seq.size();
+    read_len_ = (seq.at(0)).size();
     // need to flatten std::vector<std::string> seq_ into std::vector<char>
 
     // copy to device memory
-    d_pars_ = device_value<count_min_pars>(pars_)
-    d_reads_ = device_array<char>(seq_);
-    count_reads_gpu();
+    d_pars_ = device_value<count_min_pars>(pars_);
+    device_array<char> d_reads(seq);
+    construct_table(d_reads);
   }
 
   // To count the histogram, use a bloom filter
@@ -68,40 +72,76 @@ public:
     std::vector<uint32_t> counts;
     NumpyIntMatrix hist_mat = Eigen::Map<
               Eigen::Matrix<uint32_t, Eigen::Dynamic, 1>>(
-              counts.data(), counts.size());
+              histogram_.data(), histogram_.size());
   }
 
   uint32_t get_count(const std::string& kmer) {
-    probe(kmer);
+    uint64_t fhVal, rhVal, hVal;
+    // TODO: make sure nthash tables are available on host too
+    NTC64(kmer.data(), k_, fhVal, rhVal, hVal);
+    return probe(count_min_.data(), hVal, pars_, k_, false, false);
   }
 
 private:
-  void construct_table(const int k,
-                       const uint16_t min_count) {
+  struct GtThan {
+      int compare;
+      CUB_RUNTIME_FUNCTION __forceinline__
+      LessThan(int compare) : compare(compare) {}
+      CUB_RUNTIME_FUNCTION __forceinline__
+      bool operator()(const int &a) const {
+          return (a > compare);
+      }
+  };
+
+  void construct_table(device_array<char>& reads) {
       const size_t blockSize = 64;
       const size_t blockCount = (n_reads_ + blockSize - 1) / blockSize;
 
-      count_kmers<<<blockCount, blockSize,
-              reads.length() * blockSize * sizeof(char)>>>(
-                      d_reads_.data(), n_reads_, read_len_, k,
-                              d_count_min_.data(), d_pars_.get_value());
+      device_array<uint32_t> d_count_min(width_ * height_);
+      fill_kmers<<<blockCount, blockSize>>>(
+                      reads.data(), n_reads_, read_len_, k_,
+                      d_count_min.data(), d_pars_.data());
+      d_count_min.get_array(count_min_);
 
-      CUDA_CALL(cudaGetLastError());
+      device_array<uint32_t> d_bloom_filter(width_);
+      device_array<uint32_t> d_hist_in(reads.size());
+      count_kmers<<<blockCount, blockSize>>>(
+        reads.data(), n_reads_, read_len_, k_,
+        d_count_min.data(), count_min_pars *pars,
+        d_bloom_filter.data(), d_hist_in.data());
       CUDA_CALL(cudaDeviceSynchronize());
-      fprintf(stderr, "%c100%%", 13);
-  }
 
-  uint32_t probe_table() {}
+      // Set up cub
+      device_array<uint32_t> d_hist_out(reads.size());
+      device_value<int> d_num_selected_out;
+      device_array<void> d_temp_storage;
+      size_t temp_storage_bytes = 0;
+      GtThan select_op(0);
+
+      // Determine temporary device storage requirements
+      cub::DeviceSelect::If(d_temp_storage.data(), temp_storage_bytes,
+                            d_hist_in.data(), d_hist_out.data(),
+                            d_num_selected_out.data(), d_hist_in.size(),
+                            select_op);
+      // Allocate temporary storage
+      d_temp_storage.set_size(temp_storage_bytes);
+      // Run selection
+      cub::DeviceSelect::If(d_temp_storage.data(), temp_storage_bytes,
+                            d_hist_in.data(), d_hist_out.data(),
+                            d_num_selected_out.data(), d_hist_in.size(),
+                            select_op);
+      histogram_.resize(d_num_selected_out.get_value());
+      d_hist_out.get_array(histogram_, histogram_.size());
+  }
 
   size_t width_;
   size_t height_;
   size_t n_reads_;
   size_t read_len_;
+  int k_;
 
-  std::vector<char> seq_;
-  device_array<char> d_reads_;
-  device_array<uint32_t> d_count_min_;
-  device_array<uint32_t> d_bloom_;
+  std::vector<uint32_t> histogram_;
+  std::vector<uint32_t> count_min_;
 
   // parameters for count_min table
   count_min_pars pars_;

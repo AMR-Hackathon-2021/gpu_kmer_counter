@@ -6,23 +6,27 @@
 // taken from ppsketchlib/src/gpu/sketch.cu
 // countmin and binsign
 // using unsigned long long int = uint64_t due to atomicCAS prototype
-__device__ unsigned int probe(unsigned int *table, uint64_t hash_val,
-                              count_min_pars pars, const int k,
+__hostdevice__ unsigned int probe(unsigned int *table, uint64_t hash_val,
+                              count_min_pars* pars, const int k,
                               const bool update, const bool bloom) {
   unsigned int min_count = UINT32_MAX;
   bool found = true;
-  for (int hash_nr = 0; hash_nr < pars.table_rows;
-       hash_nr += pars.hash_per_hash) {
+  for (int hash_nr = 0; hash_nr < pars->table_rows;
+       hash_nr += pars->hash_per_hash) {
     uint64_t current_hash = hash_val;
-    for (uint i = 0; i < pars.hash_per_hash; i++) {
-      uint32_t hash_val_masked = current_hash & pars.mask;
+    for (uint i = 0; i < pars->hash_per_hash; i++) {
+      uint32_t hash_val_masked = current_hash & pars->mask;
       unsigned int *cell_ptr = table + hash_val_masked;
       if (!bloom) {
-        cell_ptr += (hash_nr + i) * pars.table_width;
+        cell_ptr += (hash_nr + i) * pars->table_width;
       }
       unsigned int cell_count;
       if (update) {
+#ifdef __CUDA_ARCH__
         cell_count = atomicInc(cell_ptr, UINT32_MAX) + 1;
+#else
+        cell_count = ++(*cell_ptr);
+#endif
       } else {
         cell_count = *cell_ptr;
       }
@@ -45,7 +49,7 @@ __device__ unsigned int probe(unsigned int *table, uint64_t hash_val,
 
 __global__ void fill_kmers(char *read_seq, const size_t n_reads,
                             const size_t read_length, const int k,
-                            unsigned int *countmin_table, count_min_pars pars) {
+                            unsigned int *countmin_table, count_min_pars *pars) {
   int read_index = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t fhVal, rhVal, hVal;
   if (read_index < n_reads) {
@@ -79,7 +83,7 @@ __global__ void fill_kmers(char *read_seq, const size_t n_reads,
 
 __global__ void count_kmers(char *read_seq, const size_t n_reads,
                             const size_t read_length, const int k,
-                            unsigned int *countmin_table, count_min_pars pars,
+                            unsigned int *countmin_table, count_min_pars *pars,
                             unsigned int *bloom_table, unsigned int *hist_table) {
   int read_index = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t fhVal, rhVal, hVal;

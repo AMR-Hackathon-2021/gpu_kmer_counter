@@ -191,36 +191,36 @@ __constant__ uint64_t *d_msTab31l[256];
 // main nthash functions - see nthash.hpp
 // All others are built from calling these
 
-__device__ inline uint64_t rol1(const uint64_t v) {
+__hostdevice__ inline uint64_t rol1(const uint64_t v) {
   return (v << 1) | (v >> 63);
 }
 
-__device__ inline uint64_t ror1(const uint64_t v) {
+__hostdevice__ inline uint64_t ror1(const uint64_t v) {
   return (v >> 1) | (v << 63);
 }
 
-__device__ inline uint64_t rol31(const uint64_t v, unsigned s) {
+__hostdevice__ inline uint64_t rol31(const uint64_t v, unsigned s) {
   s %= 31;
   return ((v << s) | (v >> (31 - s))) & 0x7FFFFFFF;
 }
 
-__device__ inline uint64_t rol33(const uint64_t v, unsigned s) {
+__hostdevice__ inline uint64_t rol33(const uint64_t v, unsigned s) {
   s %= 33;
   return ((v << s) | (v >> (33 - s))) & 0x1FFFFFFFF;
 }
 
-__device__ inline uint64_t swapbits033(const uint64_t v) {
+__hostdevice__ inline uint64_t swapbits033(const uint64_t v) {
   uint64_t x = (v ^ (v >> 33)) & 1;
   return v ^ (x | (x << 33));
 }
 
-__device__ inline uint64_t swapbits3263(const uint64_t v) {
+__hostdevice__ inline uint64_t swapbits3263(const uint64_t v) {
   uint64_t x = ((v >> 32) ^ (v >> 63)) & 1;
   return v ^ ((x << 32) | (x << 63));
 }
 
 // Forward strand hash for first k-mer
-__device__ inline void NT64(const char *kmerSeq, const unsigned k,
+__hostdevice__ inline void NT64(const char *kmerSeq, const unsigned k,
                             uint64_t &fhVal, const size_t baseStride) {
   fhVal = 0;
   for (int i = k - 1; i >= 0; i--) {
@@ -239,7 +239,7 @@ __device__ inline void NT64(const char *kmerSeq, const unsigned k,
 }
 
 // Both strand hashes for first k-mer
-__device__ inline void NTC64(const char *kmerSeq, const unsigned k,
+__hostdevice__ inline void NTC64(const char *kmerSeq, const unsigned k,
                              uint64_t &fhVal, uint64_t &rhVal, uint64_t &hVal,
                              const size_t baseStride) {
   hVal = fhVal = rhVal = 0;
@@ -264,7 +264,7 @@ __device__ inline void NTC64(const char *kmerSeq, const unsigned k,
 }
 
 // forward-strand ntHash for subsequent sliding k-mers
-__device__ inline uint64_t NTF64(const uint64_t fhVal, const unsigned k,
+__hostdevice__ inline uint64_t NTF64(const uint64_t fhVal, const unsigned k,
                                  const unsigned char charOut,
                                  const unsigned char charIn) {
   uint64_t hVal = rol1(fhVal);
@@ -275,7 +275,7 @@ __device__ inline uint64_t NTF64(const uint64_t fhVal, const unsigned k,
 }
 
 // reverse-complement ntHash for subsequent sliding k-mers
-__device__ inline uint64_t NTR64(const uint64_t rhVal, const unsigned k,
+__hostdevice__ inline uint64_t NTR64(const uint64_t rhVal, const unsigned k,
                                  const unsigned char charOut,
                                  const unsigned char charIn) {
   uint64_t hVal = rhVal ^ (d_msTab31l[charIn & cpOff][k % 31] |
@@ -287,7 +287,7 @@ __device__ inline uint64_t NTR64(const uint64_t rhVal, const unsigned k,
 }
 
 // Create a new hash from an nthash
-__device__ inline uint64_t shifthash(const uint64_t hVal, const unsigned k,
+__hostdevice__ inline uint64_t shifthash(const uint64_t hVal, const unsigned k,
                                      const unsigned i) {
   uint64_t tVal = hVal * (i ^ k * multiSeed);
   tVal ^= tVal >> multiShift;
