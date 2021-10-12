@@ -7,6 +7,8 @@
 
 #include "containers.cuh"
 
+#include "seqio.hpp"
+
 typedef Eigen::Matrix<uint32_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
     NumpyIntMatrix;
 
@@ -47,7 +49,8 @@ public:
     pars_.table_width = static_cast<uint32_t>(mask);
 
     // function for pulling read sequences from fastq files
-    std::vector<char> seq = get_reads(filenames, n_threads);
+    auto sequence = SeqBuf(filenames, k_);
+    auto seq = sequence.as_square_array(n_threads);
 
     // get the number of reads and read length
     n_reads_ = seq.size();
