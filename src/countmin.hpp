@@ -44,7 +44,6 @@ public:
     // get the number of reads and read length
     n_reads_ = seq.size();
     read_len_ = sequence.max_length();
-    // need to flatten std::vector<std::string> seq_ into std::vector<char>
 
     // copy to device memory
     d_pars_ = device_value<count_min_pars>(pars_);
@@ -63,7 +62,7 @@ public:
     uint64_t fhVal, rhVal, hVal;
     // TODO: make sure nthash tables are available on host too
     NTC64(kmer.data(), k_, fhVal, rhVal, hVal, 1);
-    return probe(&count_min_, hVal, pars_, k_, false, false);
+    return probe(count_min_.data(), hVal, &pars_, k_, false, false);
   }
 
 private:

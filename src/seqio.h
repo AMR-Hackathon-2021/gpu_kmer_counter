@@ -95,8 +95,7 @@ SeqBuf::SeqBuf(const std::vector<std::string> &filenames, const size_t kmer_len)
         // from kseq.h
         gzFile fp = gzopen(name_it->c_str(), "r");
         kseq_t *seq = kseq_init(fp);
-        int l;
-        while ((l = kseq_read(seq)) >= 0)
+        while (kseq_read(seq) >= 0)
         {
             size_t seq_len = strlen(seq->seq.s);
             if (seq_len > _max_length)
