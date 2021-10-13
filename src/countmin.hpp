@@ -43,7 +43,7 @@ public:
 
     // get the number of reads and read length
     n_reads_ = seq.size();
-    read_len_ = (seq.at(0)).size();
+    read_len_ = sequence.max_length();
     // need to flatten std::vector<std::string> seq_ into std::vector<char>
 
     // copy to device memory
@@ -62,8 +62,8 @@ public:
   uint32_t get_count(const std::string &kmer) {
     uint64_t fhVal, rhVal, hVal;
     // TODO: make sure nthash tables are available on host too
-    NTC64(kmer.data(), k_, fhVal, rhVal, hVal);
-    return probe(count_min_.data(), hVal, pars_, k_, false, false);
+    NTC64(kmer.data(), k_, fhVal, rhVal, hVal, 1);
+    return probe(&count_min_, hVal, pars_, k_, false, false);
   }
 
 private:
@@ -93,14 +93,14 @@ private:
     size_t temp_storage_bytes = 0;
 
     // Compute histograms
-    cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
+    cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
                                           d_hist_in.data(), d_hist_out.data(),
                                           num_levels, 1, hist_upper_level, d_hist_in.size());
 
     // Allocate temporary storage
     d_temp_storage.set_size(temp_storage_bytes);
     // Run selection
-    cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
+    cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
                                           d_hist_in.data(), d_hist_out.data(),
                                           num_levels, 1, hist_upper_level, d_hist_in.size());
 

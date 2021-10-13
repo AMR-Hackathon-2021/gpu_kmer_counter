@@ -66,10 +66,10 @@ __global__ void fill_kmers(char *read_seq, const size_t n_reads,
   if (read_index < n_reads) {
     // Get first valid k-mer
     if (use_rc) {
-      NTC64(read_seq + threadIdx.x * read_length, k, fhVal, rhVal, hVal);
+      NTC64(read_seq + threadIdx.x * read_length, k, fhVal, rhVal, hVal, 1);
       probe(countmin_table, hVal, pars, k, true, false);
     } else {
-      NT64(read_seq + threadIdx.x * read_length, k, fhVal);
+      NT64(read_seq + threadIdx.x * read_length, k, fhVal, 1);
       probe(countmin_table, hVal, pars, k, true, false);
     }
 
@@ -103,10 +103,10 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
     // Get first valid k-mer
     bool counted;
     if (use_rc) {
-      NTC64(read_seq + threadIdx.x * read_length, k, fhVal, rhVal, hVal);
+      NTC64(read_seq + threadIdx.x * read_length, k, fhVal, rhVal, hVal, 1);
       counted = probe(bloom_table, hVal, pars, k, false, true);
     } else {
-      NT64(read_seq + threadIdx.x * read_length, k, fhVal);
+      NT64(read_seq + threadIdx.x * read_length, k, fhVal, 1);
       counted = probe(bloom_table, hVal, pars, k, false, true);
     }
     if (!counted) {
