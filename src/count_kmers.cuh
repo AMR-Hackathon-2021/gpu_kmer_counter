@@ -6,7 +6,7 @@
 // taken from ppsketchlib/src/gpu/sketch.cu
 // countmin and binsign
 // using unsigned long long int = uint64_t due to atomicCAS prototype
-__hostdevice__ unsigned int probe(unsigned int *table, uint64_t hash_val,
+__host__ __device__ unsigned int probe(unsigned int *table, uint64_t hash_val,
                               count_min_pars* pars, const int k,
                               const bool update, const bool bloom) {
   unsigned int min_count = UINT32_MAX;
