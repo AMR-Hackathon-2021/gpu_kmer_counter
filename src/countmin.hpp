@@ -7,8 +7,6 @@
 #include "containers.cuh"
 #include "count_kmers.cuh"
 
-#include "seqio.h"
-
 //TODO create new struct for bloom filter params
 const int bloom_mult = 1;
 
