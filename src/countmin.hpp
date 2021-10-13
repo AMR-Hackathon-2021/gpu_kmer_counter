@@ -92,16 +92,16 @@ private:
     size_t temp_storage_bytes = 0;
 
     // Compute histograms
-    cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
-                                        d_hist_in.data(), d_hist_out.data(),
+      cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
+                                          d_hist_in.data(), d_hist_out.data(),
                                           num_levels, 1.0f, (float)hist_upper_level, (int)d_hist_in.size());
-
+      
     // Allocate temporary storage
     d_temp_storage.set_size(temp_storage_bytes);
     // Run selection
     cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
                                         d_hist_in.data(), d_hist_out.data(),
-                                          num_levels, 1, (float)hist_upper_level, (int)d_hist_in.size());
+                                          num_levels, 1.0f, (float)hist_upper_level, (int)d_hist_in.size());
 
     // Save results on host
     histogram_.resize(num_levels);
