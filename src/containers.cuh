@@ -62,6 +62,8 @@ public:
     CUDA_CALL(cudaMemcpy(data_, &value, sizeof(T), cudaMemcpyDefault));
   }
 
+  T *data() { return data_; }
+
 private:
   T *data_;
 };
@@ -129,6 +131,11 @@ public:
     CUDA_CALL(cudaMemcpy(dst.data(), data_, dst.size() * sizeof(T),
                          cudaMemcpyDefault));
   }
+  void get_array(std::vector<T> &dst, const size_t len) const {
+    CUDA_CALL(cudaMemcpy(dst.data(), data_, len * sizeof(T),
+                         cudaMemcpyDefault));
+  }
+
 
   void set_array(const std::vector<T> &src) {
     size_ = src.size();
