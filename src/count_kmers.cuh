@@ -50,7 +50,7 @@ __hostdevice__ unsigned int probe(unsigned int *table, uint64_t hash_val,
 __global__ void fill_kmers(char *read_seq, const size_t n_reads,
                             const size_t read_length, const int k,
                             unsigned int *countmin_table, count_min_pars *pars,
-			    const bool use_rc) {
+			                const bool use_rc) {
   int read_index = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t fhVal, rhVal, hVal;
   if (read_index < n_reads) {
@@ -86,7 +86,7 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
                             const size_t read_length, const int k,
                             unsigned int *countmin_table, count_min_pars *pars,
                             unsigned int *bloom_table, unsigned int *hist_table,
-			    const bool use_rc) {
+                            const bool use_rc) {
   int read_index = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t fhVal, rhVal, hVal;
   if (read_index < n_reads) {

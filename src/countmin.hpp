@@ -8,6 +8,9 @@
 
 #include "seqio.h"
 
+//TODO create new struct for bloom filter params
+const int bloom_mult = 1;
+
 // is count_min_pars required or can this be calculated?
 struct count_min_pars {
   int width_bits;
@@ -15,6 +18,7 @@ struct count_min_pars {
   uint64_t mask;
   uint32_t table_width;
   int table_rows;
+  int bloom_width_mult;
 };
 
 // d_count_min already constructed upon constructor of countmin
@@ -32,6 +36,7 @@ public:
     pars_.width_bits = width_bits;
     pars_.hash_per_hash = hash_per_hash;
     pars_.table_rows = table_rows;
+    pars_.bloom_width_mult = bloom_mult;
     mask = 1;
     for (size_t i = 0; i < width_bits - 1; ++i) {
       mask = mask << 1;
@@ -90,7 +95,7 @@ private:
     d_count_min.get_array(count_min_);
 
     // Use a bloom filter to count k-mers (once) from the countmin table
-    device_array<uint32_t> d_bloom_filter(width_);
+    device_array<uint32_t> d_bloom_filter(width_ * pars_.bloom_width_mult);
     device_array<uint32_t> d_hist_in(reads.size());
     count_kmers<<<blockCount, blockSize>>>(
         reads.data(), n_reads_, read_len_, k_, d_count_min.data(),
@@ -98,27 +103,26 @@ private:
     CUDA_CALL(cudaDeviceSynchronize());
 
     // Set up cub to get the non-zero k-mer counts from hist_in
-    device_array<uint32_t> d_hist_out(reads.size());
-    device_value<int> d_num_selected_out;
+    const int num_levels = hist_upper_level;
+    device_array<uint32_t> d_hist_out(num_levels);
     device_array<void> d_temp_storage;
     size_t temp_storage_bytes = 0;
-    GtThan select_op(0);
 
-    // Determine temporary device storage requirements
-    cub::DeviceSelect::If(d_temp_storage.data(), temp_storage_bytes,
-                          d_hist_in.data(), d_hist_out.data(),
-                          d_num_selected_out.data(), d_hist_in.size(),
-                          select_op);
+    // Compute histograms
+    cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
+                                          d_hist_in.data(), d_hist_out.data(),
+                                          num_levels, 1, hist_upper_level, d_hist_in.size());
+
     // Allocate temporary storage
     d_temp_storage.set_size(temp_storage_bytes);
     // Run selection
-    cub::DeviceSelect::If(d_temp_storage.data(), temp_storage_bytes,
-                          d_hist_in.data(), d_hist_out.data(),
-                          d_num_selected_out.data(), d_hist_in.size(),
-                          select_op);
+    cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
+                                          d_hist_in.data(), d_hist_out.data(),
+                                          num_levels, 1, hist_upper_level, d_hist_in.size());
+
     // Save results on host
-    histogram_.resize(d_num_selected_out.get_value());
-    d_hist_out.get_array(histogram_, histogram_.size());
+    histogram_.resize(num_levels);
+    d_hist_out.get_array(histogram_);
   }
 
   size_t width_;
