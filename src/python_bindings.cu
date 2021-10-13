@@ -13,7 +13,7 @@ PYBIND11_MODULE(cuda_kmers, m) {
       m, "count_min_table")
       .def(py::init<const std::vector<std::string>, const size_t,
            const size_t, const size_t, const size_t,
-           const size_t, const int, const int,
+           const size_t, const int, const int, const bool, const int,
            const int>())
       .def("histogram", &CountMin::histogram)
       .def("get_count", &CountMin::get_count);

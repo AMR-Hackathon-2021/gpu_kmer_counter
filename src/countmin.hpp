@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <cub/cub.cuh>
 
 #include "containers.cuh"
 #include "count_kmers.cuh"
@@ -18,7 +19,7 @@ public:
   CountMin(const std::vector<std::string> &filenames, const size_t width,
            const size_t height, const size_t n_threads, const size_t width_bits,
            const size_t hash_per_hash, const int k, const int table_rows, 
-	   const bool use_rc, const int device_id = 0)
+           const bool use_rc, const int hist_upper_level, const int device_id = 0)
       : width_(width), height_(height), k_(k), count_min_(width * height) {
     CUDA_CALL(cudaSetDevice(device_id));
     copyNtHashTablesToDevice();
@@ -28,7 +29,7 @@ public:
     pars_.hash_per_hash = hash_per_hash;
     pars_.table_rows = table_rows;
     pars_.bloom_width_mult = bloom_mult;
-    mask = 1;
+    uint64_t mask = 1;
     for (size_t i = 0; i < width_bits - 1; ++i) {
       mask = mask << 1;
       mask++;
@@ -48,7 +49,7 @@ public:
     // copy to device memory
     d_pars_ = device_value<count_min_pars>(pars_);
     device_array<char> d_reads(seq);
-    construct_table(d_reads, use_rc);
+    construct_table(d_reads, use_rc, hist_upper_level);
   }
 
   // To count the histogram, use a bloom filter
@@ -66,16 +67,8 @@ public:
   }
 
 private:
-  struct GtThan {
-    int compare;
-    CUB_RUNTIME_FUNCTION __forceinline__ GtThan(int compare)
-        : compare(compare) {}
-    CUB_RUNTIME_FUNCTION __forceinline__ bool operator()(const int &a) const {
-      return (a > compare);
-    }
-  };
-
-  void construct_table(device_array<char> &reads, const bool use_rc) {
+  void construct_table(device_array<char> &reads, const bool use_rc,
+                       const int hist_upper_level) {
     const size_t blockSize = 64;
     const size_t blockCount = (n_reads_ + blockSize - 1) / blockSize;
 
