@@ -88,7 +88,7 @@ private:
     // Set up cub to get the non-zero k-mer counts from hist_in
     const int num_levels = hist_upper_level;
     //device_array<uint32_t> d_hist_out(num_levels);
-    device_array<float> d_hist_out(num_levels);
+    device_array<int> d_hist_out(num_levels);
     device_array<float> d_hist_in2(reads.size());
     device_array<void> d_temp_storage;
     size_t temp_storage_bytes = 0;
@@ -96,14 +96,14 @@ private:
     // Compute histograms
     cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
                                         d_hist_in2.data(), d_hist_out.data(),
-                                          num_levels, 1.0f, (float)hist_upper_level, d_hist_in.size());
+                                          num_levels, 1.0f, (float)hist_upper_level, (int)d_hist_in.size());
 
     // Allocate temporary storage
     d_temp_storage.set_size(temp_storage_bytes);
     // Run selection
     cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
                                         d_hist_in2.data(), d_hist_out.data(),
-                                          num_levels, 1.0f, (float)hist_upper_level, d_hist_in.size());
+                                          num_levels, 1.0f, (float)hist_upper_level, (int)d_hist_in.size());
 
     // Save results on host
     histogram_.resize(num_levels);
