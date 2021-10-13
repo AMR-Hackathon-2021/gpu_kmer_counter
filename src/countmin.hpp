@@ -11,7 +11,7 @@ typedef Eigen::Matrix<uint32_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
     NumpyIntMatrix;
 
 // TODO
-// 1. Get function to read from fastq
+// 1. Get function to read from fastq (inside setup.py an alternative - Louise)
 // 2. Fill in count_reads_gpu()
 
 // is count_min_pars required or can this be calculated?
