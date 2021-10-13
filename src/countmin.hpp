@@ -7,7 +7,7 @@
 
 #include "containers.cuh"
 
-#include "seqio.hpp"
+#include "seqio.h"
 
 typedef Eigen::Matrix<uint32_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
     NumpyIntMatrix;

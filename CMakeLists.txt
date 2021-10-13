@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(SCE)
+project(cuda_kmers)
 set(CMAKE_CXX_STANDARD 14)
 cmake_policy(SET CMP0104 OLD) # Can't get CUDA_ARCHITECTURES to work with NEW
 
@@ -56,13 +56,13 @@ if(CMAKE_CUDA_COMPILER)
     set(CMAKE_CUDA_FLAGS "${CUDA_OPTS}")
 
     add_compile_definitions(GPU_AVAILABLE)
-    add_library("${TARGET_NAME}_CUDA" OBJECT src/wtsne_gpu.cu)
-    target_include_directories("${TARGET_NAME}_CUDA" PRIVATE "${pybind11_INCLUDE_DIRS}")
-    set_property(TARGET "${TARGET_NAME}_CUDA"
-                 PROPERTY POSITION_INDEPENDENT_CODE ON
-                 CUDA_SEPARABLE_COMPILATION OFF
-                 CUDA_RESOLVE_DEVICE_SYMBOLS ON   # try and ensure device link with nvcc
-                 CUDA_VISIBILITY_PRESET "hidden")
+    #add_library("${TARGET_NAME}_CUDA" OBJECT src/wtsne_gpu.cu)
+    #target_include_directories("${TARGET_NAME}_CUDA" PRIVATE "${pybind11_INCLUDE_DIRS}")
+    #set_property(TARGET "${TARGET_NAME}_CUDA"
+     #            PROPERTY POSITION_INDEPENDENT_CODE ON
+      #           CUDA_SEPARABLE_COMPILATION OFF
+       #          CUDA_RESOLVE_DEVICE_SYMBOLS ON   # try and ensure device link with nvcc
+        #         CUDA_VISIBILITY_PRESET "hidden")
 else()
     message(STATUS "CUDA not found, compiling CPU code only")
 endif()
@@ -84,7 +84,7 @@ if(CMAKE_CUDA_COMPILER)
     set_property(TARGET "${TARGET_NAME}" PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 
-target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module)
+target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module Eigen3::Eigen)
 if(DEFINED ENV{CONDA_PREFIX} AND (NOT APPLE OR CMAKE_COMPILER_IS_GNUCC))
   target_link_libraries("${TARGET_NAME}" PRIVATE gomp z)
 else()
