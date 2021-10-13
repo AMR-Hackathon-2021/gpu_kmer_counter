@@ -3,6 +3,16 @@
 #include "containers.cuh"
 #include "hash.cuh"
 
+// structure for count_min_table
+struct count_min_pars {
+    int width_bits;
+    int hash_per_hash;
+    uint64_t mask;
+    uint32_t table_width;
+    int table_rows;
+    int bloom_width_mult;
+};
+
 // taken from ppsketchlib/src/gpu/sketch.cu
 // countmin and binsign
 // using unsigned long long int = uint64_t due to atomicCAS prototype

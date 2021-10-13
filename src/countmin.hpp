@@ -11,15 +11,6 @@
 //TODO create new struct for bloom filter params
 const int bloom_mult = 1;
 
-// is count_min_pars required or can this be calculated?
-struct count_min_pars {
-  int width_bits;
-  int hash_per_hash;
-  uint64_t mask;
-  uint32_t table_width;
-  int table_rows;
-  int bloom_width_mult;
-};
 
 // d_count_min already constructed upon constructor of countmin
 class CountMin {
