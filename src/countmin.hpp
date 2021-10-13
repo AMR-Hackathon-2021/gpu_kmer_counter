@@ -54,7 +54,7 @@ public:
   // To count the histogram, use a bloom filter
   // Bloom filter keeps track of whether k-mer has already been counted
   // For those uncounted, return the value from countmin table
-  std::vector<uint32_t> histogram() const {
+  std::vector<int> histogram() const {
     return histogram_;
   }
 
@@ -94,14 +94,14 @@ private:
     // Compute histograms
     cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
                                         d_hist_in.data(), d_hist_out.data(),
-                                          num_levels, 1, hist_upper_level, d_hist_in.size());
+                                          num_levels, 1.0f, (float)hist_upper_level, (int)d_hist_in.size());
 
     // Allocate temporary storage
     d_temp_storage.set_size(temp_storage_bytes);
     // Run selection
     cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
                                         d_hist_in.data(), d_hist_out.data(),
-                                          num_levels, 1, hist_upper_level, d_hist_in.size());
+                                          num_levels, 1, (float)hist_upper_level, (int)d_hist_in.size());
 
     // Save results on host
     histogram_.resize(num_levels);
