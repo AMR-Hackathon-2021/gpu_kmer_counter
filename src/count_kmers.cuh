@@ -49,17 +49,18 @@ __hostdevice__ unsigned int probe(unsigned int *table, uint64_t hash_val,
 
 __global__ void fill_kmers(char *read_seq, const size_t n_reads,
                             const size_t read_length, const int k,
-                            unsigned int *countmin_table, count_min_pars *pars) {
+                            unsigned int *countmin_table, count_min_pars *pars,
+			    const bool use_rc) {
   int read_index = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t fhVal, rhVal, hVal;
   if (read_index < n_reads) {
     // Get first valid k-mer
     if (use_rc) {
       NTC64(read_ptr + threadIdx.x * read_length, k, fhVal, rhVal, hVal);
-      probe(countmin_table, hVal, cm_pars, k, true, false);
+      probe(countmin_table, hVal, pars, k, true, false);
     } else {
       NT64(read_ptr + threadIdx.x * read_length, k, fhVal);
-      probe(countmin_table, hVal, cm_pars, k, true, false);
+      probe(countmin_table, hVal, pars, k, true, false);
     }
 
     // Roll through remaining k-mers in the read
@@ -72,9 +73,9 @@ __global__ void fill_kmers(char *read_seq, const size_t n_reads,
             NTR64(rhVal, k, read_ptr[threadIdx.x * read_length + pos],
                   read_ptr[threadIdx.x * read_length + pos + k]);
         hVal = (rhVal < fhVal) ? rhVal : fhVal;
-        probe(countmin_table, hVal, cm_pars, k, true, false);
+        probe(countmin_table, hVal, pars, k, true, false);
       } else {
-        probe(countmin_table, hVal, cm_pars, k, true, false);
+        probe(countmin_table, hVal, pars, k, true, false);
       }
     }
   }
@@ -84,7 +85,8 @@ __global__ void fill_kmers(char *read_seq, const size_t n_reads,
 __global__ void count_kmers(char *read_seq, const size_t n_reads,
                             const size_t read_length, const int k,
                             unsigned int *countmin_table, count_min_pars *pars,
-                            unsigned int *bloom_table, unsigned int *hist_table) {
+                            unsigned int *bloom_table, unsigned int *hist_table,
+			    const bool use_rc) {
   int read_index = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t fhVal, rhVal, hVal;
   if (read_index < n_reads) {
@@ -92,14 +94,14 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
     bool counted;
     if (use_rc) {
       NTC64(read_ptr + threadIdx.x * read_length, k, fhVal, rhVal, hVal);
-      counted = probe(bloom_table, hVal, cm_pars, k, false, true);
+      counted = probe(bloom_table, hVal, pars, k, false, true);
     } else {
       NT64(read_ptr + threadIdx.x * read_length, k, fhVal);
-      counted = probe(bloom_table, hVal, cm_pars, k, false, true);
+      counted = probe(bloom_table, hVal, pars, k, false, true);
     }
     if (!counted) {
       hist_table[read_index + threadIdx.x * read_length] =
-        probe(countmin_table, hVal, cm_pars, k, false, false);
+        probe(countmin_table, hVal, pars, k, false, false);
     }
     __syncwarp();
 
@@ -113,13 +115,13 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
             NTR64(rhVal, k, read_ptr[threadIdx.x * read_length + pos],
                   read_ptr[threadIdx.x * read_length + pos + k]);
         hVal = (rhVal < fhVal) ? rhVal : fhVal;
-        counted = probe(bloom_table, hVal, cm_pars, k, false, true);
+        counted = probe(bloom_table, hVal, pars, k, false, true);
       } else {
-        counted = probe(bloom_table, hVal, cm_pars, k, false, true);
+        counted = probe(bloom_table, hVal, pars, k, false, true);
       }
       if (!counted) {
         hist_table[read_index + threadIdx.x * read_length + pos] =
-          probe(countmin_table, hVal, cm_pars, k, false, false);
+          probe(countmin_table, hVal, pars, k, false, false);
       }
       __syncwarp();
     }

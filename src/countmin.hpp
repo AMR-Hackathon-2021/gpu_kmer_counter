@@ -4,13 +4,14 @@
 #include <vector>
 
 #include "containers.cuh"
+#include "count_kmers.cuh"
 
 #include "seqio.h"
 
 // is count_min_pars required or can this be calculated?
 struct count_min_pars {
-  const int width_bits;
-  const int hash_per_hash;
+  int width_bits;
+  int hash_per_hash;
   uint64_t mask;
   uint32_t table_width;
   int table_rows;
@@ -21,8 +22,8 @@ class CountMin {
 public:
   CountMin(const std::vector<std::string> &filenames, const size_t width,
            const size_t height, const size_t n_threads, const size_t width_bits,
-           const size_t hash_per_hash, const int k, const int table_rows,
-           const int device_id = 0)
+           const size_t hash_per_hash, const int k, const int table_rows, 
+	   const bool use_rc, const int device_id = 0)
       : width_(width), height_(height), k_(k), count_min_(width * height) {
     CUDA_CALL(cudaSetDevice(device_id));
     copyNtHashTablesToDevice();
@@ -33,7 +34,7 @@ public:
     pars_.table_rows = table_rows;
     mask = 1;
     for (size_t i = 0; i < width_bits - 1; ++i) {
-      _mask = _mask << 1;
+      mask = mask << 1;
       mask++;
     }
     pars_.mask = mask;
@@ -51,7 +52,7 @@ public:
     // copy to device memory
     d_pars_ = device_value<count_min_pars>(pars_);
     device_array<char> d_reads(seq);
-    construct_table(d_reads);
+    construct_table(d_reads, use_rc);
   }
 
   // To count the histogram, use a bloom filter
@@ -71,21 +72,21 @@ public:
 private:
   struct GtThan {
     int compare;
-    CUB_RUNTIME_FUNCTION __forceinline__ LessThan(int compare)
+    CUB_RUNTIME_FUNCTION __forceinline__ GtThan(int compare)
         : compare(compare) {}
     CUB_RUNTIME_FUNCTION __forceinline__ bool operator()(const int &a) const {
       return (a > compare);
     }
   };
 
-  void construct_table(device_array<char> &reads) {
+  void construct_table(device_array<char> &reads, const bool use_rc) {
     const size_t blockSize = 64;
     const size_t blockCount = (n_reads_ + blockSize - 1) / blockSize;
 
     // Fill in the countmin table, and copy back to host
     device_array<uint32_t> d_count_min(width_ * height_);
     fill_kmers<<<blockCount, blockSize>>>(reads.data(), n_reads_, read_len_, k_,
-                                          d_count_min.data(), d_pars_.data());
+                                          d_count_min.data(), d_pars_.data(), use_rc);
     d_count_min.get_array(count_min_);
 
     // Use a bloom filter to count k-mers (once) from the countmin table
@@ -93,7 +94,7 @@ private:
     device_array<uint32_t> d_hist_in(reads.size());
     count_kmers<<<blockCount, blockSize>>>(
         reads.data(), n_reads_, read_len_, k_, d_count_min.data(),
-        count_min_pars * pars, d_bloom_filter.data(), d_hist_in.data());
+        d_pars_.data(), d_bloom_filter.data(), d_hist_in.data(), use_rc);
     CUDA_CALL(cudaDeviceSynchronize());
 
     // Set up cub to get the non-zero k-mer counts from hist_in
