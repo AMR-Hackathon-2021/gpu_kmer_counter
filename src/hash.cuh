@@ -13,8 +13,6 @@
 
 #include "cuda_call.cuh"
 
-namespace nthash {
-
 // offset for the complement base in the random seeds table
 const uint8_t cpOff = 0x07;
 
@@ -191,36 +189,36 @@ __constant__ uint64_t *d_msTab31l[256];
 // main nthash functions - see nthash.hpp
 // All others are built from calling these
 
-__device__ inline uint64_t rol1(const uint64_t v) {
+__host__ __device__ inline uint64_t rol1(const uint64_t v) {
   return (v << 1) | (v >> 63);
 }
 
-__device__ inline uint64_t ror1(const uint64_t v) {
+__host__ __device__ inline uint64_t ror1(const uint64_t v) {
   return (v >> 1) | (v << 63);
 }
 
-__device__ inline uint64_t rol31(const uint64_t v, unsigned s) {
+__host__ __device__ inline uint64_t rol31(const uint64_t v, unsigned s) {
   s %= 31;
   return ((v << s) | (v >> (31 - s))) & 0x7FFFFFFF;
 }
 
-__device__ inline uint64_t rol33(const uint64_t v, unsigned s) {
+__host__ __device__ inline uint64_t rol33(const uint64_t v, unsigned s) {
   s %= 33;
   return ((v << s) | (v >> (33 - s))) & 0x1FFFFFFFF;
 }
 
-__device__ inline uint64_t swapbits033(const uint64_t v) {
+__host__ __device__ inline uint64_t swapbits033(const uint64_t v) {
   uint64_t x = (v ^ (v >> 33)) & 1;
   return v ^ (x | (x << 33));
 }
 
-__device__ inline uint64_t swapbits3263(const uint64_t v) {
+__host__ __device__ inline uint64_t swapbits3263(const uint64_t v) {
   uint64_t x = ((v >> 32) ^ (v >> 63)) & 1;
   return v ^ ((x << 32) | (x << 63));
 }
 
 // Forward strand hash for first k-mer
-__device__ inline void NT64(const char *kmerSeq, const unsigned k,
+__host__ __device__ inline void NT64(const char *kmerSeq, const unsigned k,
                             uint64_t &fhVal, const size_t baseStride) {
   fhVal = 0;
   for (int i = k - 1; i >= 0; i--) {
@@ -233,13 +231,17 @@ __device__ inline void NT64(const char *kmerSeq, const unsigned k,
     */
     fhVal = rol1(fhVal);
     fhVal = swapbits033(fhVal);
+#ifdef __CUDA_ARCH__
     fhVal ^= d_seedTab[(unsigned char)kmerSeq[(k - 1 - i) * baseStride]];
+#else
+    fhVal ^= seedTab[(unsigned char)kmerSeq[(k - 1 - i) * baseStride]];
+#endif
   }
   // return true;
 }
 
 // Both strand hashes for first k-mer
-__device__ inline void NTC64(const char *kmerSeq, const unsigned k,
+__host__ __device__ inline void NTC64(const char *kmerSeq, const unsigned k,
                              uint64_t &fhVal, uint64_t &rhVal, uint64_t &hVal,
                              const size_t baseStride) {
   hVal = fhVal = rhVal = 0;
@@ -253,41 +255,60 @@ __device__ inline void NTC64(const char *kmerSeq, const unsigned k,
     */
     fhVal = rol1(fhVal);
     fhVal = swapbits033(fhVal);
+#ifdef __CUDA_ARCH__
     fhVal ^= d_seedTab[(unsigned char)kmerSeq[(k - 1 - i) * baseStride]];
+#else
+    fhVal ^= seedTab[(unsigned char)kmerSeq[(k - 1 - i) * baseStride]];
+#endif
 
     rhVal = rol1(rhVal);
     rhVal = swapbits033(rhVal);
+#ifdef __CUDA_ARCH__
     rhVal ^= d_seedTab[(unsigned char)kmerSeq[i * baseStride] & cpOff];
+#else
+    rhVal ^= seedTab[(unsigned char)kmerSeq[i * baseStride] & cpOff];
+#endif
   }
   hVal = (rhVal < fhVal) ? rhVal : fhVal;
   // return true;
 }
 
 // forward-strand ntHash for subsequent sliding k-mers
-__device__ inline uint64_t NTF64(const uint64_t fhVal, const unsigned k,
+__host__ __device__ inline uint64_t NTF64(const uint64_t fhVal, const unsigned k,
                                  const unsigned char charOut,
                                  const unsigned char charIn) {
   uint64_t hVal = rol1(fhVal);
   hVal = swapbits033(hVal);
+#ifdef __CUDA_ARCH__
   hVal ^= d_seedTab[charIn];
   hVal ^= (d_msTab31l[charOut][k % 31] | d_msTab33r[charOut][k % 33]);
+#else
+  hVal ^= seedTab[charIn];
+  hVal ^= (msTab31l[charOut][k % 31] | msTab33r[charOut][k % 33]);
+#endif
   return hVal;
 }
 
 // reverse-complement ntHash for subsequent sliding k-mers
-__device__ inline uint64_t NTR64(const uint64_t rhVal, const unsigned k,
+__host__ __device__ inline uint64_t NTR64(const uint64_t rhVal, const unsigned k,
                                  const unsigned char charOut,
                                  const unsigned char charIn) {
+#ifdef __CUDA_ARCH__
   uint64_t hVal = rhVal ^ (d_msTab31l[charIn & cpOff][k % 31] |
                            d_msTab33r[charIn & cpOff][k % 33]);
   hVal ^= d_seedTab[charOut & cpOff];
+#else
+  uint64_t hVal = rhVal ^ (msTab31l[charIn & cpOff][k % 31] |
+                           msTab33r[charIn & cpOff][k % 33]);
+  hVal ^= seedTab[charOut & cpOff];
+#endif
   hVal = ror1(hVal);
   hVal = swapbits3263(hVal);
   return hVal;
 }
 
 // Create a new hash from an nthash
-__device__ inline uint64_t shifthash(const uint64_t hVal, const unsigned k,
+__host__ __device__ inline uint64_t shifthash(const uint64_t hVal, const unsigned k,
                                      const unsigned i) {
   uint64_t tVal = hVal * (i ^ k * multiSeed);
   tVal ^= tVal >> multiShift;
@@ -460,6 +481,4 @@ void copyNtHashTablesToDevice() {
   CUDA_CALL(cudaMemcpyToSymbolAsync(d_msTab33r, d_addr_msTab33r,
                                     256 * sizeof(uint64_t *)));
   CUDA_CALL(cudaDeviceSynchronize());
-}
-
 }
