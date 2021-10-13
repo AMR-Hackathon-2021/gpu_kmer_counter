@@ -1,5 +1,6 @@
 import argparse
-import psutil 
+import psutil
+import cuda_kmers
 
 def cli():
     parser = argparse.ArgumentParser()
@@ -32,6 +33,12 @@ Testing to see if values can be extracted:
 {}
 """.format(seq_dir,k,k_guess,mem,fpr))
 
+def main():
+    ### read in options
+    count_min = count_min_table(filenames, width, height, n_threads, width_bits, hash_per_hash, k, table_rows,
+                                      use_rc, hist_upper_level, device_id)
+    histogram = count_min.histogram()
+    count = count_min.get_count("AGAGAGATAGAGAGAGAGA")
 
 
 if __name__ == '__cli__':
