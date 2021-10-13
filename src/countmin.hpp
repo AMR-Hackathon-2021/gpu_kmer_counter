@@ -12,8 +12,6 @@
 //TODO create new struct for bloom filter params
 const int bloom_mult = 1;
 
-
-// d_count_min already constructed upon constructor of countmin
 class CountMin {
 public:
   CountMin(const std::vector<std::string> &filenames, const size_t width,
@@ -60,7 +58,6 @@ public:
 
   uint32_t get_count(const std::string &kmer) {
     uint64_t fhVal, rhVal, hVal;
-    // TODO: make sure nthash tables are available on host too
     NTC64(kmer.data(), k_, fhVal, rhVal, hVal, 1);
     return probe(count_min_.data(), hVal, &pars_, k_, false, false);
   }
@@ -95,7 +92,6 @@ private:
       cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
                                           d_hist_in.data(), d_hist_out.data(),
                                           num_levels, 1.0f, (float)hist_upper_level, (int)d_hist_in.size());
-      
     // Allocate temporary storage
     d_temp_storage.set_size(temp_storage_bytes);
     // Run selection
