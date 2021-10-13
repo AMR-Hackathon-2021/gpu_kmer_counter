@@ -3,18 +3,9 @@
 #include <string>
 #include <vector>
 
-#include <Eigen/Dense>
-
 #include "containers.cuh"
 
 #include "seqio.h"
-
-typedef Eigen::Matrix<uint32_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    NumpyIntMatrix;
-
-// TODO
-// 1. Get function to read from fastq
-// 2. Fill in count_reads_gpu()
 
 // is count_min_pars required or can this be calculated?
 struct count_min_pars {
@@ -66,11 +57,8 @@ public:
   // To count the histogram, use a bloom filter
   // Bloom filter keeps track of whether k-mer has already been counted
   // For those uncounted, return the value from countmin table
-  NumpyIntMatrix histogram() {
-    std::vector<uint32_t> counts;
-    NumpyIntMatrix hist_mat =
-        Eigen::Map<Eigen::Matrix<uint32_t, Eigen::Dynamic, 1>>(
-            histogram_.data(), histogram_.size());
+  std::vector<uint32_t> histogram() const {
+    return histogram_;
   }
 
   uint32_t get_count(const std::string &kmer) {
@@ -94,11 +82,13 @@ private:
     const size_t blockSize = 64;
     const size_t blockCount = (n_reads_ + blockSize - 1) / blockSize;
 
+    // Fill in the countmin table, and copy back to host
     device_array<uint32_t> d_count_min(width_ * height_);
     fill_kmers<<<blockCount, blockSize>>>(reads.data(), n_reads_, read_len_, k_,
                                           d_count_min.data(), d_pars_.data());
     d_count_min.get_array(count_min_);
 
+    // Use a bloom filter to count k-mers (once) from the countmin table
     device_array<uint32_t> d_bloom_filter(width_);
     device_array<uint32_t> d_hist_in(reads.size());
     count_kmers<<<blockCount, blockSize>>>(
@@ -106,7 +96,7 @@ private:
         count_min_pars * pars, d_bloom_filter.data(), d_hist_in.data());
     CUDA_CALL(cudaDeviceSynchronize());
 
-    // Set up cub
+    // Set up cub to get the non-zero k-mer counts from hist_in
     device_array<uint32_t> d_hist_out(reads.size());
     device_value<int> d_num_selected_out;
     device_array<void> d_temp_storage;
@@ -125,6 +115,7 @@ private:
                           d_hist_in.data(), d_hist_out.data(),
                           d_num_selected_out.data(), d_hist_in.size(),
                           select_op);
+    // Save results on host
     histogram_.resize(d_num_selected_out.get_value());
     d_hist_out.get_array(histogram_, histogram_.size());
   }

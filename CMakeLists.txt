@@ -21,7 +21,6 @@ if(DEFINED ENV{CONDA_PREFIX})
 endif()
 
 # Add libraries
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(ZLIB)
 find_package(pybind11 REQUIRED)
 
@@ -51,7 +50,7 @@ set_target_properties("${TARGET_NAME}" PROPERTIES
              PREFIX "${PYTHON_MODULE_PREFIX}"
              SUFFIX "${PYTHON_MODULE_EXTENSION}")
 
-target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module Eigen3::Eigen)
+target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module)
 if(DEFINED ENV{CONDA_PREFIX} AND (NOT APPLE OR CMAKE_COMPILER_IS_GNUCC))
   target_link_libraries("${TARGET_NAME}" PRIVATE gomp z)
 else()
