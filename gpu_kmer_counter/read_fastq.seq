@@ -2,7 +2,7 @@ from bio import *
 
 @export
 def read_files(filenames):
-  sequences = []
+  sequences = ""
   for file in filenames:
-    sequences.append((FASTQ(file) |> blocks(size=1000) ||> iter |> seqs))
+    sequences += (FASTQ(file) |> blocks(size=1000) ||> iter |> seqs)
   return sequences

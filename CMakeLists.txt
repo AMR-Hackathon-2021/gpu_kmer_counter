@@ -18,6 +18,7 @@ if(DEFINED ENV{CONDA_PREFIX})
     include_directories($ENV{CONDA_PREFIX}/include)
     link_directories($ENV{CONDA_PREFIX}/lib)
     link_directories($ENV{CONDA_PREFIX}/lib/intel64)
+    link_directories(/home/shorsfield/software/gpu_kmer_counter/gpu_kmer_counter)
 endif()
 
 # Add libraries
@@ -52,7 +53,7 @@ set_target_properties("${TARGET_NAME}" PROPERTIES
 
 target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module)
 if(DEFINED ENV{CONDA_PREFIX} AND (NOT APPLE OR CMAKE_COMPILER_IS_GNUCC))
-  target_link_libraries("${TARGET_NAME}" PRIVATE gomp z)
+  target_link_libraries("${TARGET_NAME}" PRIVATE gomp z readfastq)
 else()
   target_link_libraries("${TARGET_NAME}" PRIVATE ZLIB::ZLIB)
 endif()

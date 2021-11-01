@@ -7,10 +7,14 @@
 #include "containers.cuh"
 #include "count_kmers.cuh"
 
+#include <omp.h>
+
 #include "seqio.h"
 
 //TODO create new struct for bloom filter params
 const int bloom_mult = 1;
+
+std::vector<std::pair<int64_t, char*>> read_files(std::vector<std::string>);
 
 class CountMin {
 public:
@@ -19,6 +23,7 @@ public:
            const size_t hash_per_hash, const int k, const int table_rows, 
            const bool use_rc, const int hist_upper_level, const int device_id = 0)
       : width_(width), height_(height), k_(k), count_min_(width * height) {
+    omp_set_num_threads(n_threads);
     CUDA_CALL(cudaSetDevice(device_id));
     copyNtHashTablesToDevice();
 
@@ -36,12 +41,15 @@ public:
     pars_.table_width = static_cast<uint32_t>(mask);
 
     // function for pulling read sequences from fastq files
-    auto sequence = SeqBuf(filenames, k_);
-    auto seq = sequence.as_square_array(n_threads);
+    //auto sequence = SeqBuf(filenames, k_);
+    auto seq = read_files(filenames).second;
+    //auto seq = sequence.as_square_array(n_threads);
 
     // get the number of reads and read length
-    n_reads_ = seq.size();
-    read_len_ = sequence.max_length();
+    //n_reads_ = seq.size();
+    //read_len_ = sequence.max_length();
+    n_reads_ = 10;
+    read_len = 250;
 
     // copy to device memory
     d_pars_ = device_value<count_min_pars>(pars_);
