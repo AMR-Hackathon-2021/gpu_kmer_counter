@@ -40,10 +40,12 @@ public:
     // function for pulling read sequences from fastq files
     const auto start = std::chrono::steady_clock::now();
     auto sequence = SeqBuf(filenames, k_);
+    const auto intermediate = std::chrono::steady_clock::now();
     auto seq = sequence.as_square_array(n_threads);
     const auto end = std::chrono::steady_clock::now();
-    std::cerr << "Preprocessing reads took "
-              << (end - start) / 1ms << "ms" << std::endl;
+    std::cerr << "Reading reads took "
+              << (intermediate - start) / 1ms << "ms" << std::endl
+              << (end - intermediate) / 1ms << "ms" << std::endl;
 
     // get the number of reads and read length
     n_reads_ = seq.size();
@@ -81,6 +83,7 @@ private:
     const auto s2 = std::chrono::steady_clock::now();
     fill_kmers<<<blockCount, blockSize>>>(reads.data(), n_reads_, read_len_, k_,
                                           d_count_min.data(), d_pars_.data(), use_rc);
+    CUDA_CALL(cudaDeviceSynchronize());
     const auto s3 = std::chrono::steady_clock::now();
     d_count_min.get_array(count_min_);
     const auto s4 = std::chrono::steady_clock::now();
@@ -130,7 +133,7 @@ private:
     d_hist_out.get_array(histogram_);
     const auto s10 = std::chrono::steady_clock::now();
 
-    std::cerr << "Hisogram: " << std::endl
+    std::cerr << "Histogram: " << std::endl
           << "Alloc: "
           << (s8 - s7) / 1ms << "ms" << std::endl
           << "Kernel: "
