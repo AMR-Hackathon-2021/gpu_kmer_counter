@@ -86,15 +86,15 @@ private:
     const auto s4 = std::chrono::steady_clock::now();
 
     std::cerr << "Filling: " << std::endl
-              << "Alloc: " <<
+              << "Alloc: "
               << (s2 - s1) / 1ms << "ms" << std::endl
-              << "Kernel: " <<
+              << "Kernel: "
               << (s3 - s2) / 1ms << "ms" << std::endl
-              << "Copy: " <<
+              << "Copy: "
               << (s4 - s3) / 1ms << "ms" << std::endl;
 
     // Use a bloom filter to count k-mers (once) from the countmin table
-    device_array<uint32_t> d_bloom_filter(width_ * pars_.bloom_width_mult);
+    device_array<uint32_t> d_bloom_filter(pars_.table_width * pars_.bloom_width_mult);
     device_array<uint32_t> d_hist_in(reads.size());
     const auto s5 = std::chrono::steady_clock::now();
     count_kmers<<<blockCount, blockSize>>>(
@@ -131,11 +131,11 @@ private:
     const auto s10 = std::chrono::steady_clock::now();
 
     std::cerr << "Hisogram: " << std::endl
-          << "Alloc: " <<
+          << "Alloc: "
           << (s8 - s7) / 1ms << "ms" << std::endl
-          << "Kernel: " <<
+          << "Kernel: "
           << (s9 - ss) / 1ms << "ms" << std::endl
-          << "Copy: " <<
+          << "Copy: "
           << (s10 - s9) / 1ms << "ms" << std::endl;
   }
 
