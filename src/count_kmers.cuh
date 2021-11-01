@@ -52,7 +52,7 @@ __host__ __device__ unsigned int probe(unsigned int *table, uint64_t hash_val,
     hash_val = shifthash(hash_val, k, hash_nr / 2);
   }
   if (bloom) {
-      min_count = found;
+    min_count = found;
   }
   return (min_count);
 }
@@ -61,9 +61,8 @@ __global__ void fill_kmers(char *read_seq, const size_t n_reads,
                             const size_t read_length, const int k,
                             unsigned int *countmin_table, count_min_pars *pars,
 			                const bool use_rc) {
-  int read_index = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t fhVal, rhVal, hVal;
-  if (read_index < n_reads) {
+  for (int read_index = blockIdx.x * blockDim.x + threadIdx.x; read_index < n_reads; read_index += blockDim.x * gridDim.x) {
     // Get first valid k-mer
     if (use_rc) {
       NTC64(read_seq + threadIdx.x * read_length, k, fhVal, rhVal, hVal, 1);
@@ -97,9 +96,8 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
                             unsigned int *countmin_table, count_min_pars *pars,
                             unsigned int *bloom_table, unsigned int *hist_table,
                             const bool use_rc) {
-  int read_index = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t fhVal, rhVal, hVal;
-  if (read_index < n_reads) {
+  for (int read_index = blockIdx.x * blockDim.x + threadIdx.x; read_index < n_reads; read_index += blockDim.x * gridDim.x) {
     // Get first valid k-mer
     bool counted;
     if (use_rc) {
