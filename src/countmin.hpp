@@ -16,7 +16,7 @@ class CountMin {
 public:
   CountMin(const std::vector<std::string> &filenames, const size_t width,
            const size_t height, const size_t n_threads, const size_t width_bits,
-           const size_t hash_per_hash, const int k, const int table_rows, 
+           const size_t hash_per_hash, const int k, const int table_rows,
            const bool use_rc, const int hist_upper_level, const int device_id = 0)
       : width_(width), height_(height), k_(k), count_min_(width * height) {
     CUDA_CALL(cudaSetDevice(device_id));

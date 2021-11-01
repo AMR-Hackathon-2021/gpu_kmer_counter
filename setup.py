@@ -15,10 +15,6 @@ from distutils.version import LooseVersion
 
 current_dir = os.getcwd()
 
-"""
-	Script to .....
-"""
-
 def read(*names, **kwargs):
 	with io.open(
 		os.path.join(os.path.dirname(__file__), *names),
@@ -26,46 +22,6 @@ def read(*names, **kwargs):
 	) as fp:
 		return fp.read()
 
-def read1(self):
-	"""
-			Alternative to read short-reads
-	"""
-	if len(os.listdir("./path/data/illumina")) != 0: 
-		path = "./path/data/illumina"
-		files = os.listdir(path)
-			
-		if "R1" in files[0]:
-			for i in range(1, len(files), 2):
-				fastq_r1 = path + "/" + files[i-1]
-				fastq_r2 = path + "/" + files[i]
-								
-def FolderVerificationRun(self):
-	  files = os.listdir("./")
-	  print(files)
-	  if "data" not in files:
-		  os.mkdir("./data")
-	  files = os.listdir("./data")
-	  folders_tools = ["illumina", "results"]
-	  for f in folders_tools:
-		  if f not in files:
-			  path = "./data/"+f
-			  os.mkdir(path)
-	  folders_trimm = ["illumina", "nanopore", "pacbio"]
-	  files_input = os.listdir("./data/input")
-	  files_trimmed = os.listdir("./data/trimmed")
-	  for f in folders_trimm:
-		  if f not in files_input:
-			  path = "./data/input/"+f
-			  os.mkdir(path)
-		  if f not in files_trimmed:
-			  path = "./data/trimmed/"+f
-			  os.mkdir(path)
-	  files_results = os.listdir("./data/results")
-	  folders_results = ["input", "trimmed", "results"]
-	  for f in folders_results:
-		  if f not in files_results:
-			  path = "./data/results/"+f
-			  os.mkdir(path)
 
 def find_version(*file_paths):
 	version_file = read(*file_paths)
