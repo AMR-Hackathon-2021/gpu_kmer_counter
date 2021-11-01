@@ -134,7 +134,7 @@ private:
           << "Alloc: "
           << (s8 - s7) / 1ms << "ms" << std::endl
           << "Kernel: "
-          << (s9 - ss) / 1ms << "ms" << std::endl
+          << (s9 - s8) / 1ms << "ms" << std::endl
           << "Copy: "
           << (s10 - s9) / 1ms << "ms" << std::endl;
   }
