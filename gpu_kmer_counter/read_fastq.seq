@@ -1,0 +1,9 @@
+def parallel_read(s: seq):
+  return s
+
+@export
+def read_files(filenames):
+  sequences = []
+  for file in filenames:
+    sequences.append(FASTQ(file) |> blocks(size=1000) ||> iter |> parallel_read))
+  return sequences
