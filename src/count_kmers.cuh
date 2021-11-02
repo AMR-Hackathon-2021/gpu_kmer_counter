@@ -64,7 +64,7 @@ __device__ size_t copy_reads_to_shared(char *&read_seq,
                                       const size_t read_length,
                                       const size_t n_reads) {
   const size_t bank_bytes = 8;
-  const size_t read_length_bank_pad +=
+  const size_t read_length_bank_pad = read_length +
       read_length % bank_bytes ? bank_bytes - read_length % bank_bytes : 0;
   extern __shared__ char read_shared[];
   auto block = cooperative_groups::this_thread_block();
@@ -125,7 +125,7 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
   uint64_t fhVal, rhVal, hVal;
   size_t read_stride = copy_reads_to_shared(read_seq, read_length, n_reads);
   int read_index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (read_index < n_reads)
+  if (read_index < n_reads) {
     // Get first valid k-mer
     bool counted;
     if (use_rc) {
