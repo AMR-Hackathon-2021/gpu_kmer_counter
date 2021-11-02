@@ -64,16 +64,14 @@ __host__ __device__ bool probe_bloom(unsigned int *table, uint64_t hash_val,
       unsigned int *cell_ptr = table + hash_val_masked;
       if (update) {
 #ifdef __CUDA_ARCH__
-        cell_count = atomicMax(cell_ptr, 1);
+        found &= atomicMax(cell_ptr, 1) > 0;
 #else
-        cell_count = *cell_ptr;
+        found &= *cell_ptr > 0;
         *cell_ptr = 1;
 #endif
       } else {
-        cell_count = *cell_ptr;
+        found &= *cell_ptr > 0;
       }
-
-      found &= cell_count > 0;
       current_hash = current_hash >> pars->width_bits;
     }
     hash_val = shifthash(hash_val, k, hash_nr / 2);

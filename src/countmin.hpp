@@ -68,7 +68,7 @@ public:
   uint32_t get_count(const std::string &kmer) {
     uint64_t fhVal, rhVal, hVal;
     NTC64(kmer.data(), k_, fhVal, rhVal, hVal, 1);
-    return probe(count_min_.data(), hVal, &pars_, k_, false, false);
+    return probe_cm(count_min_.data(), hVal, &pars_, k_, false);
   }
 
 private:
