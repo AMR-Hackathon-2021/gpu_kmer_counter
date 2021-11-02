@@ -19,20 +19,18 @@ struct count_min_pars {
 // taken from ppsketchlib/src/gpu/sketch.cu
 // countmin and binsign
 // using unsigned long long int = uint64_t due to atomicCAS prototype
-__host__ __device__ unsigned int probe(unsigned int *table, uint64_t hash_val,
-                                       count_min_pars *pars, const int k,
-                                       const bool update, const bool bloom) {
+__host__ __device__ unsigned int probe_cm(unsigned int *table,
+                                          uint64_t hash_val,
+                                          count_min_pars *pars, const int k,
+                                          const bool update) {
   unsigned int min_count = UINT32_MAX;
-  bool found = true;
   for (int hash_nr = 0; hash_nr < pars->table_rows;
        hash_nr += pars->hash_per_hash) {
     uint64_t current_hash = hash_val;
     for (uint i = 0; i < pars->hash_per_hash; i++) {
       uint32_t hash_val_masked = current_hash & pars->mask;
-      unsigned int *cell_ptr = table + hash_val_masked;
-      if (!bloom) {
-        cell_ptr += (hash_nr + i) * pars->table_width;
-      }
+      unsigned int *cell_ptr =
+          table + hash_val_masked + (hash_nr + i) * pars->table_width;
       unsigned int cell_count;
       if (update) {
 #ifdef __CUDA_ARCH__
@@ -44,9 +42,6 @@ __host__ __device__ unsigned int probe(unsigned int *table, uint64_t hash_val,
         cell_count = *cell_ptr;
       }
 
-      if (bloom) {
-        found &= cell_count > 0;
-      }
       if (cell_count < min_count) {
         min_count = cell_count;
       }
@@ -54,18 +49,46 @@ __host__ __device__ unsigned int probe(unsigned int *table, uint64_t hash_val,
     }
     hash_val = shifthash(hash_val, k, hash_nr / 2);
   }
-  if (bloom) {
-    min_count = found;
-  }
   return (min_count);
 }
 
+__host__ __device__ bool probe_bloom(unsigned int *table, uint64_t hash_val,
+                                     count_min_pars *pars, const int k,
+                                     const bool update) {
+  bool found = true;
+  for (int hash_nr = 0; hash_nr < pars->table_rows;
+       hash_nr += pars->hash_per_hash) {
+    uint64_t current_hash = hash_val;
+    for (uint i = 0; i < pars->hash_per_hash; i++) {
+      uint32_t hash_val_masked = current_hash & pars->mask;
+      unsigned int *cell_ptr = table + hash_val_masked;
+      if (update) {
+#ifdef __CUDA_ARCH__
+        cell_count = atomicMax(cell_ptr, 1);
+#else
+        cell_count = *cell_ptr;
+        *cell_ptr = 1;
+#endif
+      } else {
+        cell_count = *cell_ptr;
+      }
+
+      found &= cell_count > 0;
+      current_hash = current_hash >> pars->width_bits;
+    }
+    hash_val = shifthash(hash_val, k, hash_nr / 2);
+  }
+  return (found);
+}
+
 __device__ size_t copy_reads_to_shared(char *&read_seq,
-                                      const size_t read_length,
-                                      const size_t n_reads) {
+                                       const size_t read_length,
+                                       const size_t n_reads) {
   const size_t bank_bytes = 8;
-  const size_t read_length_bank_pad = read_length +
-      read_length % bank_bytes ? bank_bytes - read_length % bank_bytes : 0;
+  const size_t read_length_bank_pad =
+      read_length + read_length % bank_bytes
+          ? bank_bytes - read_length % bank_bytes
+          : 0;
   extern __shared__ char read_shared[];
   auto block = cooperative_groups::this_thread_block();
   size_t n_reads_in_block = blockDim.x;
@@ -94,10 +117,10 @@ __global__ void fill_kmers(char *read_seq, const size_t n_reads,
     // Get first valid k-mer
     if (use_rc) {
       NTC64(read_seq + threadIdx.x * read_stride, k, fhVal, rhVal, hVal, 1);
-      probe(countmin_table, hVal, pars, k, true, false);
+      probe_cm(countmin_table, hVal, pars, k, true);
     } else {
       NT64(read_seq + threadIdx.x * read_stride, k, fhVal, 1);
-      probe(countmin_table, hVal, pars, k, true, false);
+      probe_cm(countmin_table, hVal, pars, k, true);
     }
 
     // Roll through remaining k-mers in the read
@@ -108,9 +131,9 @@ __global__ void fill_kmers(char *read_seq, const size_t n_reads,
         rhVal = NTR64(fhVal, k, read_seq[threadIdx.x * read_stride + pos],
                       read_seq[threadIdx.x * read_stride + pos + k]);
         hVal = (rhVal < fhVal) ? rhVal : fhVal;
-        probe(countmin_table, hVal, pars, k, true, false);
+        probe_cm(countmin_table, hVal, pars, k, true);
       } else {
-        probe(countmin_table, hVal, pars, k, true, false);
+        probe_cm(countmin_table, hVal, pars, k, true);
       }
     }
   }
@@ -130,14 +153,13 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
     bool counted;
     if (use_rc) {
       NTC64(read_seq + threadIdx.x * read_stride, k, fhVal, rhVal, hVal, 1);
-      counted = probe(bloom_table, hVal, pars, k, false, true);
+      counted = probe_bloom(bloom_table, hVal, pars, k, true);
     } else {
       NT64(read_seq + threadIdx.x * read_stride, k, fhVal, 1);
-      counted = probe(bloom_table, hVal, pars, k, false, true);
+      counted = probe_bloom(bloom_table, hVal, pars, k, true);
     }
     if (!counted) {
-      hist_table[read_index] =
-          probe(countmin_table, hVal, pars, k, false, false);
+      hist_table[read_index] = probe_cm(countmin_table, hVal, pars, k, false);
     }
     __syncwarp();
 
@@ -151,17 +173,15 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
             NTR64(rhVal, k, read_seq[threadIdx.x * read_stride + pos],
                   read_seq[threadIdx.x * read_stride + pos + k]);
         hVal = (rhVal < fhVal) ? rhVal : fhVal;
-        counted = probe(bloom_table, hVal, pars, k, false, true);
+        counted = probe_bloom(bloom_table, hVal, pars, k, true);
       } else {
-        counted = probe(bloom_table, hVal, pars, k, false, true);
+        counted = probe_bloom(bloom_table, hVal, pars, k, false, true);
       }
       if (!counted) {
         hist_table[read_index + pos * n_reads] =
-            probe(countmin_table, hVal, pars, k, false, false);
+            probe_cm(countmin_table, hVal, pars, k, false);
       }
       __syncwarp();
     }
   }
 }
-
-// TODO: use cub select if on this output
