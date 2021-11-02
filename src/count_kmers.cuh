@@ -62,8 +62,7 @@ __host__ __device__ unsigned int probe(unsigned int *table, uint64_t hash_val,
 
 __device__ size_t copy_reads_to_shared(char *&read_seq,
                                       const size_t read_length,
-                                      const size_t n_reads,
-                                      ) {
+                                      const size_t n_reads) {
   const size_t bank_bytes = 8;
   const size_t read_length_bank_pad +=
       read_length % bank_bytes ? bank_bytes - read_length % bank_bytes : 0;
@@ -104,10 +103,10 @@ __global__ void fill_kmers(char *read_seq, const size_t n_reads,
     // Roll through remaining k-mers in the read
     for (int pos = 0; pos < read_length - k; pos++) {
       fhVal = NTF64(fhVal, k, read_seq[threadIdx.x * read_stride + pos],
-                    read_ptr[threadIdx.x * read_length_bank_pad + pos + k]);
+                    read_seq[threadIdx.x * read_stride + pos + k]);
       if (use_rc) {
         rhVal = NTR64(fhVal, k, read_seq[threadIdx.x * read_stride + pos],
-                      read_seq[threadIdx.x * read_length_bank_pad + pos + k]);
+                      read_seq[threadIdx.x * read_stride + pos + k]);
         hVal = (rhVal < fhVal) ? rhVal : fhVal;
         probe(countmin_table, hVal, pars, k, true, false);
       } else {
