@@ -173,7 +173,7 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
         hVal = (rhVal < fhVal) ? rhVal : fhVal;
         counted = probe_bloom(bloom_table, hVal, pars, k, true);
       } else {
-        counted = probe_bloom(bloom_table, hVal, pars, k, false, true);
+        counted = probe_bloom(bloom_table, hVal, pars, k, true);
       }
       if (!counted) {
         hist_table[read_index + pos * n_reads] =
