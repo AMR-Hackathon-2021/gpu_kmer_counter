@@ -45,7 +45,7 @@ public:
     const auto end = std::chrono::steady_clock::now();
     std::cerr << "Reading reads took "
               << (intermediate - start) / 1ms << "ms" << std::endl
-              << (end - intermediate) / 1ms << "ms" << std::endl;
+              << "transposing: " << (end - intermediate) / 1ms << "ms" << std::endl;
 
     // get the number of reads and read length
     n_reads_ = sequence.n_full_seqs();
@@ -66,6 +66,9 @@ public:
   }
 
   uint32_t get_count(const std::string &kmer) {
+    if (kmer.size() != k_) {
+      throw std::runtime_error("k-mer query must be same length as used for construction");
+    }
     uint64_t fhVal, rhVal, hVal;
     NTC64(kmer.data(), k_, fhVal, rhVal, hVal, 1);
     return probe_cm(count_min_.data(), hVal, &pars_, k_, false);

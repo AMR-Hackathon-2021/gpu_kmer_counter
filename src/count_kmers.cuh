@@ -121,7 +121,7 @@ __global__ void fill_kmers(char *read_seq, const size_t n_reads,
       probe_cm(countmin_table, hVal, pars, k, true);
     } else {
       NT64(read_seq + threadIdx.x * read_stride, k, fhVal, 1);
-      probe_cm(countmin_table, hVal, pars, k, true);
+      probe_cm(countmin_table, fhVal, pars, k, true);
     }
 
     // Roll through remaining k-mers in the read
@@ -129,12 +129,12 @@ __global__ void fill_kmers(char *read_seq, const size_t n_reads,
       fhVal = NTF64(fhVal, k, read_seq[threadIdx.x * read_stride + pos],
                     read_seq[threadIdx.x * read_stride + pos + k]);
       if (use_rc) {
-        rhVal = NTR64(fhVal, k, read_seq[threadIdx.x * read_stride + pos],
+        rhVal = NTR64(rhVal, k, read_seq[threadIdx.x * read_stride + pos],
                       read_seq[threadIdx.x * read_stride + pos + k]);
         hVal = (rhVal < fhVal) ? rhVal : fhVal;
         probe_cm(countmin_table, hVal, pars, k, true);
       } else {
-        probe_cm(countmin_table, hVal, pars, k, true);
+        probe_cm(countmin_table, fhVal, pars, k, true);
       }
     }
   }
@@ -157,7 +157,8 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
       counted = probe_bloom(bloom_table, hVal, pars, k, true);
     } else {
       NT64(read_seq + threadIdx.x * read_stride, k, fhVal, 1);
-      counted = probe_bloom(bloom_table, hVal, pars, k, true);
+      counted = probe_bloom(bloom_table, fhVal, pars, k, true);
+      hVal = fhVal;
     }
     if (!counted) {
       hist_table[read_index] = probe_cm(countmin_table, hVal, pars, k, false);
@@ -176,10 +177,11 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
         hVal = (rhVal < fhVal) ? rhVal : fhVal;
         counted = probe_bloom(bloom_table, hVal, pars, k, true);
       } else {
-        counted = probe_bloom(bloom_table, hVal, pars, k, true);
+        counted = probe_bloom(bloom_table, fhVal, pars, k, true);
+        hVal = fhVal;
       }
       if (!counted) {
-        hist_table[read_index + pos * n_reads] =
+        hist_table[read_index + (pos + 1) * n_reads] =
             probe_cm(countmin_table, hVal, pars, k, false);
       }
       __syncwarp();
