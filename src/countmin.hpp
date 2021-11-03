@@ -76,13 +76,15 @@ private:
                        const int hist_upper_level) {
     const size_t blockSize = 64;
     const size_t blockCount = (n_reads_ + blockSize - 1) / blockSize;
+    const size_t shared_padding = bank_padding(read_len_);
 
     // Fill in the countmin table, and copy back to host
     const auto s1 = std::chrono::steady_clock::now();
     device_array<uint32_t> d_count_min(count_min_.size());
     const auto s2 = std::chrono::steady_clock::now();
-    fill_kmers<<<blockCount, blockSize>>>(reads.data(), n_reads_, read_len_, k_,
-                                          d_count_min.data(), d_pars_.data(), use_rc);
+    fill_kmers<<<blockCount, blockSize, blockSize * shared_padding>>>(
+      reads.data(), n_reads_, read_len_, k_,
+      d_count_min.data(), d_pars_.data(), use_rc);
     CUDA_CALL(cudaDeviceSynchronize());
     const auto s3 = std::chrono::steady_clock::now();
     d_count_min.get_array(count_min_);
@@ -100,7 +102,7 @@ private:
     device_array<uint32_t> d_bloom_filter(pars_.table_width * pars_.bloom_width_mult);
     device_array<uint32_t> d_hist_in(reads.size());
     const auto s5 = std::chrono::steady_clock::now();
-    count_kmers<<<blockCount, blockSize>>>(
+    count_kmers<<<blockCount, blockSize, blockSize * shared_padding>>>(
         reads.data(), n_reads_, read_len_, k_, d_count_min.data(),
         d_pars_.data(), d_bloom_filter.data(), d_hist_in.data(), use_rc);
     CUDA_CALL(cudaDeviceSynchronize());

@@ -79,14 +79,18 @@ __host__ __device__ bool probe_bloom(unsigned int *table, uint64_t hash_val,
   return (found);
 }
 
+__host__ __device__ inline size_t bank_padding(size_t read_length) {
+  static const size_t bank_bytes = 8;
+  return read_length + read_length % bank_bytes
+          ? bank_bytes - read_length % bank_bytes
+          : 0;
+}
+
 __device__ size_t copy_reads_to_shared(char *&read_seq,
                                        const size_t read_length,
                                        const size_t n_reads) {
   const size_t bank_bytes = 8;
-  const size_t read_length_bank_pad =
-      read_length + read_length % bank_bytes
-          ? bank_bytes - read_length % bank_bytes
-          : 0;
+  const size_t read_length_bank_pad = bank_padding(read_length);
   extern __shared__ char read_shared[];
   auto block = cooperative_groups::this_thread_block();
   size_t n_reads_in_block = blockDim.x;
