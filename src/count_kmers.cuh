@@ -104,6 +104,7 @@ __device__ size_t copy_reads_to_shared(char *&read_seq,
         sizeof(char) * read_length);
   }
   cooperative_groups::wait(block);
+  read_seq = read_shared;
   return read_length_bank_pad;
 }
 
@@ -167,11 +168,11 @@ __global__ void count_kmers(char *read_seq, const size_t n_reads,
 
     // Roll through remaining k-mers in the read
     for (int pos = 0; pos < read_length - k; pos++) {
-      fhVal = // stall short scoreboard
+      fhVal =
           NTF64(fhVal, k, read_seq[threadIdx.x * read_stride + pos],
                 read_seq[threadIdx.x * read_stride + pos + k]);
       if (use_rc) {
-        rhVal = // stall short scoreboard
+        rhVal =
             NTR64(rhVal, k, read_seq[threadIdx.x * read_stride + pos],
                   read_seq[threadIdx.x * read_stride + pos + k]);
         hVal = (rhVal < fhVal) ? rhVal : fhVal;
