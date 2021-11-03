@@ -48,7 +48,7 @@ public:
               << (end - intermediate) / 1ms << "ms" << std::endl;
 
     // get the number of reads and read length
-    n_reads_ = seq.size();
+    n_reads_ = sequence.n_full_seqs();
     read_len_ = sequence.max_length();
 
     // copy to device memory
