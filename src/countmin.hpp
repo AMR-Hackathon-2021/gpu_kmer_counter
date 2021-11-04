@@ -241,6 +241,7 @@ private:
     device_value<int> num_runs_out;
     // Allocate temporary storage
     temp_storage_bytes = 0;
+    d_temp_storage.set_size(temp_storage_bytes);
     cub::DeviceRunLengthEncode::Encode(d_temp_storage.data(), temp_storage_bytes,
                                    sorted_k_table.data(), unique_out.data(),
                                    counts_out.data(), num_runs_out.data(), sorted_k_table.size());
@@ -263,6 +264,7 @@ private:
 
     // Compute histograms
     temp_storage_bytes = 0;
+    d_temp_storage.set_size(temp_storage_bytes);
     cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
                                           counts_out.data(), d_hist_out.data(),
                                           num_levels, 1.0f, (float)hist_upper_level, count_len);
