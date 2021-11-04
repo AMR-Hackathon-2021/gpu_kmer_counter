@@ -17,4 +17,11 @@ PYBIND11_MODULE(cuda_kmers, m) {
            const int>())
       .def("histogram", &CountMin::histogram)
       .def("get_count", &CountMin::get_count);
+
+  py::class_<SortingTable, std::shared_ptr<SortingTable>>(
+      m, "sorting_table")
+      .def(py::init<const std::vector<std::string>,
+           const size_t, const int, const bool,
+           const int, const int>())
+      .def("histogram", &CountMin::histogram);
 }

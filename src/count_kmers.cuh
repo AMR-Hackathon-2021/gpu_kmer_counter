@@ -108,6 +108,39 @@ __device__ size_t copy_reads_to_shared(char *&read_seq,
   return read_length_bank_pad;
 }
 
+__global__ void enum_kmers(char *read_seq, const size_t n_reads,
+                           const size_t read_length, const int k,
+                           uint32_t *kmer_table, count_min_pars *pars,
+                           const bool use_rc) {
+  uint64_t fhVal, rhVal, hVal;
+  size_t read_stride = copy_reads_to_shared(read_seq, read_length, n_reads);
+  int read_index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (read_index < n_reads) {
+    // Get first valid k-mer
+    if (use_rc) {
+      NTC64(read_seq + threadIdx.x * read_stride, k, fhVal, rhVal, hVal, 1);
+    } else {
+      NT64(read_seq + threadIdx.x * read_stride, k, fhVal, 1);
+      hVal = fhVal;
+    }
+    kmer_table[read_index] = static_cast<uint32_t>(hVal);
+
+    // Roll through remaining k-mers in the read
+    for (int pos = 0; pos < read_length - k; pos++) {
+      fhVal = NTF64(fhVal, k, read_seq[threadIdx.x * read_stride + pos],
+                    read_seq[threadIdx.x * read_stride + pos + k]);
+      if (use_rc) {
+        rhVal = NTR64(rhVal, k, read_seq[threadIdx.x * read_stride + pos],
+                      read_seq[threadIdx.x * read_stride + pos + k]);
+        hVal = (rhVal < fhVal) ? rhVal : fhVal;
+      } else {
+        hVal = fhVal;
+      }
+      kmer_table[read_index + (pos + 1) * n_reads] = static_cast<uint32_t>(hVal);
+    }
+  }
+}
+
 __global__ void fill_kmers(char *read_seq, const size_t n_reads,
                            const size_t read_length, const int k,
                            unsigned int *countmin_table, count_min_pars *pars,

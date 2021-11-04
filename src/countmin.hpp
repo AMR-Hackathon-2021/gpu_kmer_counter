@@ -158,3 +158,126 @@ private:
   count_min_pars pars_;
   device_value<count_min_pars> d_pars_;
 };
+
+class SortingTable {
+public:
+  SortingTable(const std::vector<std::string> &filenames,
+           const size_t n_threads, const int k, const bool use_rc,
+           const int hist_upper_level, const int device_id = 0) :k_(k) {
+    CUDA_CALL(cudaSetDevice(device_id));
+    copyNtHashTablesToDevice();
+
+    // function for pulling read sequences from fastq files
+    const auto start = std::chrono::steady_clock::now();
+    auto sequence = SeqBuf(filenames, k_);
+    const auto intermediate = std::chrono::steady_clock::now();
+    auto seq = sequence.as_square_array(n_threads);
+    const auto end = std::chrono::steady_clock::now();
+    std::cerr << "Reading reads took "
+              << (intermediate - start) / 1ms << "ms" << std::endl
+              << "transposing: " << (end - intermediate) / 1ms << "ms" << std::endl;
+
+    // get the number of reads and read length
+    n_reads_ = sequence.n_full_seqs();
+    read_len_ = sequence.max_length();
+
+    // copy to device memory
+    device_array<char> d_reads(seq);
+    construct_hist(d_reads, use_rc, hist_upper_level);
+  }
+
+private:
+  size_t n_reads_;
+  size_t read_len_;
+  int k_;
+
+  std::vector<int> histogram_;
+
+  void construct_hist(device_array<char> &reads, const bool use_rc,
+                      const int hist_upper_level) {
+    const size_t blockSize = 64;
+    const size_t blockCount = (n_reads_ + blockSize - 1) / blockSize;
+    const size_t shared_padding = bank_padding(read_len_);
+
+    // Fill in the countmin table, and copy back to host
+    device_array<uint32_t> d_k_table(n_reads_ * (read_length - k + 1));
+    const auto s1 = std::chrono::steady_clock::now();
+    enum_kmers<<<blockCount, blockSize, blockSize * shared_padding>>>(
+      reads.data(), n_reads_, read_len_, k_,
+      d_k_table.data(), use_rc);
+    CUDA_CALL(cudaDeviceSynchronize());
+    const auto s2 = std::chrono::steady_clock::now();
+
+    std::cerr << "Filling: "
+              << (s2 - s1) / 1ms << "ms" << std::endl;
+
+    // sort
+    device_array<uint32_t> sorted_k_table(d_k_table.size());
+    // Allocate temporary storage
+    device_array<void> d_temp_storage;
+    size_t temp_storage_bytes = 0;
+    cub::DeviceRadixSort::SortKeys(d_temp_storage.data(), temp_storage_bytes,
+                                   d_k_table.data(), sorted_k_table.data(),
+                                   d_k_table.size());
+    d_temp_storage.set_size(temp_storage_bytes);
+    // Run sort
+    const auto s3 = std::chrono::steady_clock::now();
+    cub::DeviceRadixSort::SortKeys(d_temp_storage.data(), temp_storage_bytes,
+                                   d_k_table.data(), sorted_k_table.data(),
+                                   d_k_table.size());
+    CUDA_CALL(cudaDeviceSynchronize());
+    const auto s4 = std::chrono::steady_clock::now();
+
+    std::cerr << "Sorting: "
+              << (s4 - s3) / 1ms << "ms" << std::endl;
+
+    // runlen encode
+    device_array<uint32_t> unique_out(sorted_k_table.size());
+    device_array<int> counts_out(sorted_k_table.size());
+    device_value<int> num_runs_out();
+    // Allocate temporary storage
+    device_array<void> d_temp_storage;
+    size_t temp_storage_bytes = 0;
+    cub::DeviceRunLengthEncode::Encode(d_temp_storage.data(), temp_storage_bytes,
+                                   sorted_k_table.data(), unique_out.data(),
+                                   counts_out.data(), num_runs_out.data(), sorted_k_table.size());
+    d_temp_storage.set_size(temp_storage_bytes);
+    // Run the encoding
+    const auto s5 = std::chrono::steady_clock::now();
+    cub::DeviceRunLengthEncode::Encode(d_temp_storage.data(), temp_storage_bytes,
+                                      sorted_k_table.data(), unique_out.data(),
+                                      counts_out.data(), num_runs_out.data(), sorted_k_table.size());
+    CUDA_CALL(cudaDeviceSynchronize());
+    const auto s6 = std::chrono::steady_clock::now();
+
+    std::cerr << "Counting: "
+              << (s6 - s5) / 1ms << "ms" << std::endl;
+
+    // Set up cub to get the non-zero k-mer counts from hist_in
+    const int num_levels = hist_upper_level;
+    device_array<int> d_hist_out(num_levels);
+    device_array<void> d_temp_storage;
+    size_t temp_storage_bytes = 0;
+    int count_len = num_runs_out.get_value();
+
+    // Compute histograms
+    cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
+                                          counts_out.data(), d_hist_out.data(),
+                                          num_levels, 1.0f, (float)hist_upper_level, count_len);
+    // Allocate temporary storage
+    d_temp_storage.set_size(temp_storage_bytes);
+    // Run selection
+    const auto s7 = std::chrono::steady_clock::now();
+        cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
+                                          counts_out.data(), d_hist_out.data(),
+                                          num_levels, 1.0f, (float)hist_upper_level, count_len);
+    const auto s8 = std::chrono::steady_clock::now();
+
+    std::cerr << "Histogram: "
+              << (s8 - s7) / 1ms << "ms" << std::endl;
+
+    // Save results on host
+    histogram_.resize(num_levels);
+    d_hist_out.get_array(histogram_);
+  }
+}
