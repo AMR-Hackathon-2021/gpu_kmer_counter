@@ -186,6 +186,10 @@ public:
     construct_hist(d_reads, use_rc, hist_upper_level);
   }
 
+  std::vector<int> histogram() const {
+    return histogram_;
+  }
+
 private:
   size_t n_reads_;
   size_t read_len_;
@@ -255,11 +259,10 @@ private:
     // Set up cub to get the non-zero k-mer counts from hist_in
     const int num_levels = hist_upper_level;
     device_array<int> d_hist_out(num_levels);
-    device_array<void> d_temp_storage;
-    size_t temp_storage_bytes = 0;
     int count_len = num_runs_out.get_value();
 
     // Compute histograms
+    temp_storage_bytes = 0;
     cub::DeviceHistogram::HistogramEven(d_temp_storage.data(), temp_storage_bytes,
                                           counts_out.data(), d_hist_out.data(),
                                           num_levels, 1.0f, (float)hist_upper_level, count_len);
