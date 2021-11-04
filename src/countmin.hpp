@@ -214,7 +214,8 @@ private:
     // sort
     device_array<uint32_t> sorted_k_table(d_k_table.size());
     // Allocate temporary storage
-    temp_storage_bytes = 0;
+    device_array<void> d_temp_storage;
+    size_t temp_storage_bytes = 0;
     cub::DeviceRadixSort::SortKeys(d_temp_storage.data(), temp_storage_bytes,
                                    d_k_table.data(), sorted_k_table.data(),
                                    d_k_table.size());

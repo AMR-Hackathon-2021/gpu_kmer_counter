@@ -23,5 +23,5 @@ PYBIND11_MODULE(cuda_kmers, m) {
       .def(py::init<const std::vector<std::string>,
            const size_t, const int, const bool,
            const int, const int>())
-      .def("histogram", &CountMin::histogram);
+      .def("histogram", &SortingTable::histogram);
 }
