@@ -110,7 +110,7 @@ __device__ size_t copy_reads_to_shared(char *&read_seq,
 
 __global__ void enum_kmers(char *read_seq, const size_t n_reads,
                            const size_t read_length, const int k,
-                           uint32_t *kmer_table, count_min_pars *pars,
+                           uint32_t *kmer_table,
                            const bool use_rc) {
   uint64_t fhVal, rhVal, hVal;
   size_t read_stride = copy_reads_to_shared(read_seq, read_length, n_reads);

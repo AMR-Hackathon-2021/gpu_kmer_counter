@@ -200,7 +200,7 @@ private:
     const size_t shared_padding = bank_padding(read_len_);
 
     // Fill in the countmin table, and copy back to host
-    device_array<uint32_t> d_k_table(n_reads_ * (read_length - k + 1));
+    device_array<uint32_t> d_k_table(n_reads_ * (read_len_ - k_ + 1));
     const auto s1 = std::chrono::steady_clock::now();
     enum_kmers<<<blockCount, blockSize, blockSize * shared_padding>>>(
       reads.data(), n_reads_, read_len_, k_,
@@ -214,8 +214,7 @@ private:
     // sort
     device_array<uint32_t> sorted_k_table(d_k_table.size());
     // Allocate temporary storage
-    device_array<void> d_temp_storage;
-    size_t temp_storage_bytes = 0;
+    temp_storage_bytes = 0;
     cub::DeviceRadixSort::SortKeys(d_temp_storage.data(), temp_storage_bytes,
                                    d_k_table.data(), sorted_k_table.data(),
                                    d_k_table.size());
@@ -234,10 +233,9 @@ private:
     // runlen encode
     device_array<uint32_t> unique_out(sorted_k_table.size());
     device_array<int> counts_out(sorted_k_table.size());
-    device_value<int> num_runs_out();
+    device_value<int> num_runs_out;
     // Allocate temporary storage
-    device_array<void> d_temp_storage;
-    size_t temp_storage_bytes = 0;
+    temp_storage_bytes = 0;
     cub::DeviceRunLengthEncode::Encode(d_temp_storage.data(), temp_storage_bytes,
                                    sorted_k_table.data(), unique_out.data(),
                                    counts_out.data(), num_runs_out.data(), sorted_k_table.size());
@@ -280,4 +278,4 @@ private:
     histogram_.resize(num_levels);
     d_hist_out.get_array(histogram_);
   }
-}
+};
